@@ -553,9 +553,9 @@ function toggleOpt(el){el.classList.toggle('selected');el.querySelector('.scout-
 function setRisk(l){scoutRisk=l;['low','med','high'].forEach(x=>document.getElementById('risk-'+x).className='risk-btn');document.getElementById('risk-'+l.replace('ium','')).className='risk-btn active-'+({low:'low',medium:'med',high:'high'}[l]);}
 function setNSugg(n){scoutNSugg=n;[3,5,8].forEach(x=>{document.getElementById(`nsugg-${x}`).className='risk-btn'+(x===n?' active-low':'');});}
 
-async function callClaude(prompt,maxTokens=1000){
+async function callClaude(prompt,maxTokens=2000){
   const k=getApiKey(); if(!k)throw new Error('Inserisci la tua API Key Anthropic!');
-  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})});
+  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})});
   const d=await r.json(); if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
   return d.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim();
 }
@@ -593,8 +593,25 @@ Titoli già in portafoglio (NON suggerire): ${existing||'nessuno'}
 Analizza il mercato globale (PASSATO 1-5 anni, PRESENTE, FUTURO 6-18 mesi) e identifica ${scoutNSugg} titoli.
 Rispondi SOLO in JSON valido:
 {"opportunities":[{"ticker":"","company":"","exchange":"","sector":"","current_price_estimate":"$ 0","target_12m":"$ 0","upside_pct":20,"score":85,"timeframe":"","risk_level":"basso/medio/alto","analysis":"4-5 frasi.","catalysts":["c1","c2","c3"],"past_performance":"","future_outlook":""}],"market_context":"5-6 frasi."}`;
-  try{renderOpportunities(JSON.parse(await callClaude(prompt,1000)));}
-  catch(e){setLoading('loading-bar-scout','loading-text-scout',true,'// ERRORE: '+e.message);setTimeout(()=>setLoading('loading-bar-scout','loading-text-scout',false),4000);}
+  try{
+    const raw=await callClaude(prompt,4000);
+    console.log('SCOUT RAW:', raw);
+    let parsed;
+    try{ parsed=JSON.parse(raw); }
+    catch(pe){
+      // Try to extract JSON from response
+      const match=raw.match(/\{[\s\S]*\}/);
+      if(match) parsed=JSON.parse(match[0]);
+      else throw new Error('JSON non valido: '+raw.substring(0,200));
+    }
+    if(!parsed.opportunities||parsed.opportunities.length===0) throw new Error('Nessuna opportunità nel risultato AI');
+    renderOpportunities(parsed);
+  }
+  catch(e){
+    console.error('SCOUT ERROR:',e);
+    setLoading('loading-bar-scout','loading-text-scout',true,'// ERRORE: '+e.message);
+    setTimeout(()=>setLoading('loading-bar-scout','loading-text-scout',false),6000);
+  }
   finally{btn.disabled=false;setLoading('loading-bar-scout','loading-text-scout',false);}
 }
 
@@ -628,7 +645,10 @@ function renderOpportunities(data){
     return `<div class="opp-card" style="animation:fadeIn 0.4s ease ${i*0.08}s both"><div class="opp-top"><div><div style="display:flex;align-items:center;gap:10px;margin-bottom:4px"><div class="opp-ticker">${opp.ticker}</div><div class="opp-sector-badge">${opp.sector||''}</div></div><div class="opp-name">${opp.company||''} · ${opp.exchange||''}</div></div><div class="opp-score-circle"><div class="opp-score-num">${score}</div><div class="opp-score-lbl">SCORE</div></div></div><div class="opp-metrics">${opp.current_price_estimate?`<div class="meta-item"><div class="meta-label">Prezzo Est.</div><div class="meta-value">${opp.current_price_estimate}</div></div>`:''} ${opp.target_12m?`<div class="meta-item"><div class="meta-label">Target 12M</div><div class="meta-value" style="color:var(--green)">${opp.target_12m}</div></div>`:''} ${upside?`<div class="meta-item"><div class="meta-label">Upside</div><div class="meta-value" style="color:${uc}">+${upside}%</div></div>`:''}<div class="meta-item"><div class="meta-label">Rischio</div><div class="meta-value" style="color:${rc}">${(opp.risk_level||'').toUpperCase()}</div></div></div><div class="opp-analysis">${opp.analysis||''}</div>${opp.past_performance?`<div class="info-block past"><strong style="color:var(--text2)">📊 PASSATO</strong>${opp.past_performance}</div>`:''} ${opp.future_outlook?`<div class="info-block future"><strong style="color:var(--blue)">🔮 FUTURO</strong>${opp.future_outlook}</div>`:''} ${cats?`<div><div class="meta-label" style="margin-bottom:5px">CATALIZZATORI</div><div class="catalyst-list">${cats}</div></div>`:''}<div class="opp-horizons"><div class="horizon-tag ${tfcls}">${opp.timeframe||'medio termine'}</div><div class="horizon-tag positive">⭐ OPPORTUNITÀ</div></div></div>`;
   }).join('');
   document.getElementById('opp-macro-text').textContent=data.market_context||'';
-  const p=document.getElementById('opportunities-panel');p.classList.add('active');p.scrollIntoView({behavior:'smooth',block:'start'});
+  const p=document.getElementById('opportunities-panel');
+  p.style.display='block';
+  p.classList.add('active');
+  setTimeout(()=>p.scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
 </script>
 </body>
