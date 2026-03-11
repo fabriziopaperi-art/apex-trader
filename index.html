@@ -102,6 +102,7 @@ async function loadUserData(uid) {
       }
       if (d.portfolio?.length) {
         window.loadPortfolioFromData(d.portfolio);
+        setTimeout(()=>window.updateDashboard && window.updateDashboard(),300);
         showToast(`✅ Portafoglio caricato (${d.portfolio.length} titoli)`, 'success');
       }
       if (d.context) document.getElementById('context-input').value = d.context;
@@ -363,8 +364,84 @@ window.showToast = function(msg, type='info') {
   .disclaimer strong { color:var(--amber); }
   hr.divider { border:none; border-top:1px solid var(--border); margin:36px 0; }
   @keyframes fadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+
+  /* ── PRICE UPDATE ────────────────────────────────────── */
+  .btn-refresh-prices {
+    display:flex; align-items:center; gap:8px;
+    background:rgba(0,230,118,0.08); border:1px solid rgba(0,230,118,0.3);
+    color:var(--green); padding:8px 18px;
+    font-family:'Barlow Condensed',sans-serif; font-weight:700;
+    font-size:0.82rem; letter-spacing:0.15em; border-radius:4px;
+    cursor:pointer; transition:all 0.2s; white-space:nowrap;
+  }
+  .btn-refresh-prices:hover { background:rgba(0,230,118,0.18); box-shadow:0 0 14px rgba(0,230,118,0.2); }
+  .btn-refresh-prices:disabled { opacity:0.4; cursor:not-allowed; box-shadow:none; }
+  .btn-refresh-prices .spin { display:inline-block; }
+  .btn-refresh-prices.loading .spin { animation:spin 1s linear infinite; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .price-status { font-family:'Space Mono',monospace; font-size:0.62rem; color:var(--text3); margin-top:6px; }
+  .price-ok  { color:var(--green); }
+  .price-err { color:var(--red); }
+  .price-cell { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+  .price-live-dot { width:6px; height:6px; border-radius:50%; background:var(--green); box-shadow:0 0 6px var(--green); flex-shrink:0; }
+  .chg-badge { font-size:0.6rem; padding:1px 5px; border-radius:2px; font-family:'Space Mono',monospace; }
+  .chg-pos { background:rgba(0,230,118,0.1); color:var(--green); }
+  .chg-neg { background:rgba(255,23,68,0.1); color:var(--red); }
+
+  /* ── PORTFOLIO DASHBOARD ─────────────────────────────── */
+  .portfolio-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; flex-wrap:wrap; gap:10px; }
+  .portfolio-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.75rem; letter-spacing:0.2em; color:var(--text3); text-transform:uppercase; }
+  .btn-update-prices { background:rgba(0,229,255,0.08); border:1px solid rgba(0,229,255,0.25); color:var(--cyan); padding:6px 16px; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.75rem; letter-spacing:0.12em; border-radius:3px; cursor:pointer; transition:all 0.2s; }
+  .btn-update-prices:hover { background:rgba(0,229,255,0.15); }
+
+  /* KPI STRIP */
+  .kpi-strip { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:20px; }
+  .kpi-card { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:14px 16px; position:relative; overflow:hidden; }
+  .kpi-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; }
+  .kpi-card.green::before { background:var(--green); }
+  .kpi-card.red::before { background:var(--red); }
+  .kpi-card.cyan::before { background:var(--cyan); }
+  .kpi-card.amber::before { background:var(--amber); }
+  .kpi-card.blue::before { background:var(--blue); }
+  .kpi-label { font-family:'Space Mono',monospace; font-size:0.58rem; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:6px; }
+  .kpi-value { font-family:'Barlow Condensed',sans-serif; font-weight:900; font-size:1.5rem; line-height:1; }
+  .kpi-sub { font-family:'Space Mono',monospace; font-size:0.62rem; color:var(--text3); margin-top:3px; }
+
+  /* TABLE */
+  .portfolio-table-wrap { overflow-x:auto; margin-bottom:20px; border:1px solid var(--border); border-radius:6px; }
+  table.ptable { width:100%; border-collapse:collapse; font-size:0.82rem; }
+  .ptable thead tr { background:var(--panel2); border-bottom:1px solid var(--border); }
+  .ptable th { font-family:'Space Mono',monospace; font-size:0.6rem; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em; padding:10px 14px; text-align:right; white-space:nowrap; }
+  .ptable th:first-child { text-align:left; }
+  .ptable tbody tr { border-bottom:1px solid rgba(30,45,61,0.6); transition:background 0.15s; }
+  .ptable tbody tr:last-child { border-bottom:none; }
+  .ptable tbody tr:hover { background:var(--panel2); }
+  .ptable td { padding:11px 14px; text-align:right; font-family:'Space Mono',monospace; font-size:0.75rem; white-space:nowrap; }
+  .ptable td:first-child { text-align:left; }
+  .ptable td input { background:var(--bg2); border:1px solid var(--border); color:var(--text); padding:5px 8px; font-family:'Space Mono',monospace; font-size:0.72rem; border-radius:3px; width:80px; text-align:right; outline:none; }
+  .ptable td input:focus { border-color:var(--cyan); }
+  .ticker-cell { display:flex; align-items:center; gap:8px; }
+  .ticker-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .ticker-name { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.9rem; letter-spacing:0.05em; }
+  .pnl-pos { color:var(--green); }
+  .pnl-neg { color:var(--red); }
+  .weight-bar-wrap { display:flex; align-items:center; gap:6px; justify-content:flex-end; }
+  .weight-bar { height:4px; border-radius:2px; background:var(--blue); opacity:0.7; }
+
+  /* CHARTS GRID */
+  .charts-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:24px; }
+  @media(max-width:700px){ .charts-grid{grid-template-columns:1fr;} }
+  .chart-box { background:var(--panel); border:1px solid var(--border); border-radius:6px; padding:18px 20px; }
+  .chart-box.full { grid-column:1/-1; }
+  .chart-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:0.75rem; letter-spacing:0.18em; color:var(--text3); text-transform:uppercase; margin-bottom:14px; }
+  .chart-canvas-wrap { position:relative; height:220px; }
+  .chart-canvas-wrap.tall { height:260px; }
+
   @media(max-width:600px) { .summary-cards{grid-template-columns:repeat(3,1fr)} .logo{font-size:1.4rem} }
 </style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
 <body>
 <div class="wrapper">
@@ -395,15 +472,81 @@ window.showToast = function(msg, type='info') {
 
   <div class="date-strip" id="date-strip">CARICAMENTO...</div>
 
-  <div class="section-label">⬡ PORTAFOGLIO ATTUALE</div>
-  <div class="preset-row">
-    <button class="btn-preset" onclick="loadPreset('tech')">PRESET TECH</button>
-    <button class="btn-preset" onclick="loadPreset('eu')">PRESET EUROPEO</button>
-    <button class="btn-preset" onclick="loadPreset('mixed')">PRESET MISTO</button>
-    <button class="btn-preset" onclick="clearPortfolio()">✕ SVUOTA</button>
+  <!-- PORTFOLIO DASHBOARD -->
+  <div class="portfolio-header">
+    <div class="portfolio-title">⬡ PORTAFOGLIO ATTUALE</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="btn-preset" onclick="loadPreset('tech')">PRESET TECH</button>
+      <button class="btn-preset" onclick="loadPreset('eu')">PRESET EUROPEO</button>
+      <button class="btn-preset" onclick="loadPreset('mixed')">PRESET MISTO</button>
+      <button class="btn-preset" onclick="clearPortfolio()">✕ SVUOTA</button>
+      <button class="btn-refresh-prices" id="btn-refresh" onclick="refreshPrices()">
+        <span class="spin">↻</span> AGGIORNA PREZZI
+      </button>
+    </div>
   </div>
-  <div id="stocks-list"></div>
-  <button class="btn-add-stock" onclick="addStock()">＋ AGGIUNGI AZIONE</button>
+  <div class="price-status" id="price-status"></div>
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip" id="kpi-strip" style="display:none">
+    <div class="kpi-card cyan">
+      <div class="kpi-label">Valore Totale</div>
+      <div class="kpi-value" id="kpi-total">—</div>
+      <div class="kpi-sub" id="kpi-invested">Investito: —</div>
+    </div>
+    <div class="kpi-card" id="kpi-pnl-card">
+      <div class="kpi-label">P&amp;L Totale</div>
+      <div class="kpi-value" id="kpi-pnl">—</div>
+      <div class="kpi-sub" id="kpi-pnl-pct">—</div>
+    </div>
+    <div class="kpi-card blue">
+      <div class="kpi-label">N° Posizioni</div>
+      <div class="kpi-value" id="kpi-positions">0</div>
+      <div class="kpi-sub" id="kpi-best">Best: —</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Worst Position</div>
+      <div class="kpi-value" id="kpi-worst-val">—</div>
+      <div class="kpi-sub" id="kpi-worst">—</div>
+    </div>
+  </div>
+
+  <!-- PORTFOLIO TABLE -->
+  <div class="portfolio-table-wrap" id="portfolio-table-wrap">
+    <table class="ptable">
+      <thead>
+        <tr>
+          <th>TITOLO</th>
+          <th>QTÀ</th>
+          <th>P. ACQUISTO</th>
+          <th>P. ATTUALE</th>
+          <th>VALORE</th>
+          <th>P&amp;L €</th>
+          <th>P&amp;L %</th>
+          <th>PESO</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="stocks-list"></tbody>
+    </table>
+  </div>
+  <button class="btn-add-stock" onclick="addStock()">＋ AGGIUNGI TITOLO</button>
+
+  <!-- CHARTS -->
+  <div class="charts-grid" id="charts-grid" style="display:none">
+    <div class="chart-box">
+      <div class="chart-title">📊 COMPOSIZIONE PORTAFOGLIO</div>
+      <div class="chart-canvas-wrap"><canvas id="chart-pie"></canvas></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">📈 P&amp;L PER TITOLO (%)</div>
+      <div class="chart-canvas-wrap"><canvas id="chart-pnl"></canvas></div>
+    </div>
+    <div class="chart-box full">
+      <div class="chart-title">💰 VALORE VS INVESTITO PER TITOLO</div>
+      <div class="chart-canvas-wrap tall"><canvas id="chart-bars"></canvas></div>
+    </div>
+  </div>
 
   <div class="section-label">⬡ CONTESTO AGGIUNTIVO (opzionale)</div>
   <textarea id="context-input" placeholder="Es: orizzonte 6 mesi, profilo moderato, ridurre esposizione tech..."></textarea>
@@ -513,40 +656,273 @@ function getApiKey() {
   return k;
 }
 
+// ── PALETTE FOR CHARTS ──────────────────────────────────────
+const PALETTE = ['#00e676','#2979ff','#00e5ff','#ffab00','#ff1744','#e040fb','#ff6d00','#69f0ae','#40c4ff','#ea80fc'];
+
 window.loadPortfolioFromData = function(portfolio) {
-  window._stocks = []; portfolio.forEach(s => addStock(s.ticker, s.qty, s.price));
+  window._stocks = [];
+  portfolio.forEach(s => addStock(s.ticker, s.qty, s.price, s.currentPrice||''));
 };
 
 window.collectStocksFromDOM = function() {
-  document.querySelectorAll('[data-id]').forEach(row => {
-    const id = parseInt(row.dataset.id), s = window._stocks.find(s => s.id === id);
-    if (s) { const i = row.querySelectorAll('input'); s.ticker = i[0].value.toUpperCase().trim(); s.price = i[1].value; }
+  document.querySelectorAll('tr[data-id]').forEach(row => {
+    const id = parseInt(row.dataset.id), s = window._stocks.find(s=>s.id===id);
+    if (!s) return;
+    const inputs = row.querySelectorAll('input');
+    s.ticker       = inputs[0]?.value.toUpperCase().trim() || s.ticker;
+    s.qty          = inputs[1]?.value || s.qty;
+    s.price        = inputs[2]?.value || s.price;
+    s.currentPrice = inputs[3]?.value || s.currentPrice;
   });
 };
 
 const presets = {
-  tech:  [{ticker:'AAPL',qty:50,price:185.20},{ticker:'MSFT',qty:30,price:415.50},{ticker:'NVDA',qty:20,price:875.00},{ticker:'GOOGL',qty:15,price:155.80},{ticker:'META',qty:25,price:502.30}],
-  eu:    [{ticker:'ENI.MI',qty:200,price:14.85},{ticker:'ISP.MI',qty:500,price:3.92},{ticker:'STLAM.MI',qty:100,price:16.40},{ticker:'ENEL.MI',qty:300,price:6.21},{ticker:'UCG.MI',qty:150,price:38.70}],
-  mixed: [{ticker:'AAPL',qty:40,price:185.20},{ticker:'ENI.MI',qty:200,price:14.85},{ticker:'AMZN',qty:12,price:178.35},{ticker:'ISP.MI',qty:300,price:3.92},{ticker:'TSLA',qty:15,price:193.80}]
+  tech:  [{ticker:'AAPL',qty:50,price:185.20,currentPrice:213.50},{ticker:'MSFT',qty:30,price:415.50,currentPrice:425.20},{ticker:'NVDA',qty:20,price:875.00,currentPrice:950.00},{ticker:'GOOGL',qty:15,price:155.80,currentPrice:168.40},{ticker:'META',qty:25,price:502.30,currentPrice:580.10}],
+  eu:    [{ticker:'ENI.MI',qty:200,price:14.85,currentPrice:15.60},{ticker:'ISP.MI',qty:500,price:3.92,currentPrice:4.15},{ticker:'STLAM.MI',qty:100,price:16.40,currentPrice:14.20},{ticker:'ENEL.MI',qty:300,price:6.21,currentPrice:6.80},{ticker:'UCG.MI',qty:150,price:38.70,currentPrice:42.30}],
+  mixed: [{ticker:'AAPL',qty:40,price:185.20,currentPrice:213.50},{ticker:'ENI.MI',qty:200,price:14.85,currentPrice:15.60},{ticker:'AMZN',qty:12,price:178.35,currentPrice:195.20},{ticker:'ISP.MI',qty:300,price:3.92,currentPrice:4.15},{ticker:'TSLA',qty:15,price:193.80,currentPrice:175.30}]
 };
-function loadPreset(n) { window._stocks=[]; presets[n].forEach(s=>addStock(s.ticker,s.qty,s.price)); }
-function clearPortfolio() { window._stocks=[]; renderStocks(); }
-function addStock(ticker='',qty='',price='') {
-  const id=stockId++; window._stocks.push({id,ticker,qty,price}); renderStocks();
-  if(!ticker) setTimeout(()=>{const el=document.querySelector(`[data-id="${id}"] .ticker-input`);if(el)el.focus();},50);
+
+function loadPreset(n) { window._stocks=[]; presets[n].forEach(s=>addStock(s.ticker,s.qty,s.price,s.currentPrice)); }
+function clearPortfolio() { window._stocks=[]; renderStocks(); updateDashboard(); }
+
+function addStock(ticker='',qty='',price='',currentPrice='') {
+  const id=stockId++;
+  window._stocks.push({id,ticker,qty,price,currentPrice});
+  renderStocks();
+  updateDashboard();
+  if(!ticker) setTimeout(()=>{const el=document.querySelector(`tr[data-id="${id}"] .ticker-input`);if(el)el.focus();},50);
 }
-function removeStock(id) { window._stocks=window._stocks.filter(s=>s.id!==id); renderStocks(); }
+
+function removeStock(id) {
+  window._stocks=window._stocks.filter(s=>s.id!==id);
+  renderStocks(); updateDashboard();
+}
+
+function updateStock(id,field,value) {
+  const s=window._stocks.find(s=>s.id===id);
+  if(s){
+    s[field]=value;
+    if(field==='currentPrice') s._priceData=null; // manual edit clears live indicator
+    updateDashboard();
+  }
+}
+
 function renderStocks() {
-  document.getElementById('stocks-list').innerHTML=window._stocks.map(s=>`
-    <div class="stock-input-row" data-id="${s.id}">
-      <input type="text" class="ticker-input" placeholder="TICKER (es. AAPL)" value="${s.ticker}" maxlength="12"
-        onchange="updateStock(${s.id},'ticker',this.value)" oninput="this.value=this.value.toUpperCase()">
-      <input type="number" placeholder="Prezzo medio (€/$)" value="${s.price||''}" min="0" step="0.01"
-        onchange="updateStock(${s.id},'price',this.value)">
-      <button class="btn-remove" onclick="removeStock(${s.id})">✕</button>
-    </div>`).join('');
+  const total = calcTotalValue();
+  document.getElementById('stocks-list').innerHTML = window._stocks.map((s,i) => {
+    const qty      = parseFloat(s.qty)||0;
+    const buyP     = parseFloat(s.price)||0;
+    const curP     = parseFloat(s.currentPrice)||0;
+    const invested = qty * buyP;
+    const value    = curP>0 ? qty*curP : 0;
+    const pnl      = curP>0 ? value-invested : null;
+    const pnlPct   = (curP>0 && buyP>0) ? ((curP-buyP)/buyP*100) : null;
+    const weight   = (total>0 && value>0) ? (value/total*100) : 0;
+    const color    = PALETTE[i % PALETTE.length];
+    const fmtPnl   = pnl!==null ? (pnl>=0?'+':'')+pnl.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
+    const fmtPct   = pnlPct!==null ? (pnlPct>=0?'+':'')+pnlPct.toFixed(2)+'%' : '—';
+    const pnlClass = pnl===null?'':(pnl>=0?'pnl-pos':'pnl-neg');
+    return `<tr data-id="${s.id}">
+      <td><div class="ticker-cell">
+        <div class="ticker-dot" style="background:${color}"></div>
+        <input type="text" class="ticker-input" value="${s.ticker}" placeholder="TICKER" maxlength="12"
+          onchange="updateStock(${s.id},'ticker',this.value)" oninput="this.value=this.value.toUpperCase()" style="width:90px">
+      </div></td>
+      <td><input type="number" value="${s.qty||''}" placeholder="0" min="0" step="1"
+        onchange="updateStock(${s.id},'qty',this.value)" style="width:65px"></td>
+      <td><input type="number" value="${s.price||''}" placeholder="0.00" min="0" step="0.01"
+        onchange="updateStock(${s.id},'price',this.value)" style="width:80px"></td>
+      <td>
+        <div class="price-cell">
+          ${s._priceData ? `<div class="price-live-dot" title="Prezzo live Yahoo Finance"></div>` : ''}
+          <input type="number" value="${s.currentPrice||''}" placeholder="0.00" min="0" step="0.01"
+            onchange="updateStock(${s.id},'currentPrice',this.value)"
+            style="width:80px;border-color:${s._priceData?'rgba(0,230,118,0.4)':'rgba(0,229,255,0.3)'}">
+          ${s._priceData?.change != null ? `<span class="chg-badge ${s._priceData.change>=0?'chg-pos':'chg-neg'}">${s._priceData.change>=0?'+':''}${s._priceData.change}%</span>` : ''}
+        </div>
+      </td>
+      <td style="color:var(--text)">${value>0?value.toLocaleString('it-IT',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
+      <td class="${pnlClass}">${fmtPnl}</td>
+      <td class="${pnlClass}">${fmtPct}</td>
+      <td><div class="weight-bar-wrap">
+        <div class="weight-bar" style="width:${Math.max(weight*2,2)}px;background:${color}"></div>
+        <span style="color:var(--text2);font-size:0.65rem">${weight>0?weight.toFixed(1)+'%':'—'}</span>
+      </div></td>
+      <td><button class="btn-remove" onclick="removeStock(${s.id})" style="width:28px;height:28px;font-size:0.8rem">✕</button></td>
+    </tr>`;
+  }).join('');
 }
-function updateStock(id,field,value){const s=window._stocks.find(s=>s.id===id);if(s)s[field]=value;}
+
+function calcTotalValue() {
+  return window._stocks.reduce((sum,s)=>{
+    const v=(parseFloat(s.currentPrice)||0)*(parseFloat(s.qty)||0);
+    return sum+(v>0?v:0);
+  },0);
+}
+
+function calcTotalInvested() {
+  return window._stocks.reduce((sum,s)=>{
+    return sum+(parseFloat(s.price)||0)*(parseFloat(s.qty)||0);
+  },0);
+}
+
+// ── CHARTS INSTANCES ─────────────────────────────────────
+let chartPie=null, chartPnl=null, chartBars=null;
+
+function destroyCharts(){[chartPie,chartPnl,chartBars].forEach(c=>{if(c)c.destroy();});chartPie=chartPnl=chartBars=null;}
+
+window.updateDashboard = function updateDashboard() {
+  const valid = window._stocks.filter(s=>s.ticker&&(parseFloat(s.qty)||0)>0);
+  const hasCurrentPrice = valid.some(s=>parseFloat(s.currentPrice)>0);
+
+  // Show/hide sections
+  document.getElementById('kpi-strip').style.display   = valid.length>0 ? 'grid' : 'none';
+  document.getElementById('charts-grid').style.display = hasCurrentPrice && valid.length>0 ? 'grid' : 'none';
+
+  if(valid.length===0){destroyCharts();return;}
+
+  const totalValue    = calcTotalValue();
+  const totalInvested = calcTotalInvested();
+  const totalPnl      = totalValue>0 ? totalValue-totalInvested : null;
+  const totalPnlPct   = (totalPnl!==null&&totalInvested>0) ? (totalPnl/totalInvested*100) : null;
+
+  // KPI
+  document.getElementById('kpi-total').textContent    = totalValue>0 ? totalValue.toLocaleString('it-IT',{minimumFractionDigits:0,maximumFractionDigits:0})+' €' : '—';
+  document.getElementById('kpi-invested').textContent = 'Investito: '+(totalInvested>0?totalInvested.toLocaleString('it-IT',{minimumFractionDigits:0,maximumFractionDigits:0})+' €':'—');
+  document.getElementById('kpi-pnl').textContent      = totalPnl!==null ? (totalPnl>=0?'+':'')+totalPnl.toLocaleString('it-IT',{minimumFractionDigits:0,maximumFractionDigits:0})+' €' : '—';
+  document.getElementById('kpi-pnl-pct').textContent  = totalPnlPct!==null ? (totalPnlPct>=0?'+':'')+totalPnlPct.toFixed(2)+'%' : '—';
+  document.getElementById('kpi-positions').textContent = valid.length;
+  const kpiCard = document.getElementById('kpi-pnl-card');
+  kpiCard.className = 'kpi-card '+(totalPnl===null?'blue':totalPnl>=0?'green':'red');
+  document.getElementById('kpi-pnl').style.color = totalPnl===null?'':(totalPnl>=0?'var(--green)':'var(--red)');
+
+  // Best/Worst
+  const withPnl = valid.filter(s=>parseFloat(s.currentPrice)>0&&parseFloat(s.price)>0).map(s=>{
+    const pct=((parseFloat(s.currentPrice)-parseFloat(s.price))/parseFloat(s.price)*100);
+    return {ticker:s.ticker,pct};
+  });
+  if(withPnl.length){
+    const best=withPnl.reduce((a,b)=>a.pct>b.pct?a:b);
+    const worst=withPnl.reduce((a,b)=>a.pct<b.pct?a:b);
+    document.getElementById('kpi-best').textContent='Best: '+best.ticker+' '+(best.pct>=0?'+':'')+best.pct.toFixed(1)+'%';
+    document.getElementById('kpi-worst-val').textContent=worst.ticker;
+    document.getElementById('kpi-worst').textContent=(worst.pct>=0?'+':'')+worst.pct.toFixed(1)+'%';
+    document.getElementById('kpi-worst-val').style.color=worst.pct>=0?'var(--green)':'var(--red)';
+  }
+
+  if(!hasCurrentPrice) return;
+
+  destroyCharts();
+  const labels = valid.map(s=>s.ticker);
+  const colors = valid.map((_,i)=>PALETTE[i%PALETTE.length]);
+  const values = valid.map(s=>(parseFloat(s.currentPrice)||0)*(parseFloat(s.qty)||0));
+  const pnlPcts = valid.map(s=>{
+    const b=parseFloat(s.price)||0, c=parseFloat(s.currentPrice)||0;
+    return (b>0&&c>0)?parseFloat(((c-b)/b*100).toFixed(2)):0;
+  });
+  const invested = valid.map(s=>(parseFloat(s.price)||0)*(parseFloat(s.qty)||0));
+
+  const chartDefaults = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{ labels:{ color:'#8899aa', font:{family:'Space Mono',size:10} } } }
+  };
+
+  // PIE CHART
+  chartPie = new Chart(document.getElementById('chart-pie'), {
+    type:'doughnut',
+    data:{ labels, datasets:[{ data:values, backgroundColor:colors, borderColor:'#0d1117', borderWidth:2 }] },
+    options:{...chartDefaults, cutout:'60%',
+      plugins:{ legend:{ position:'right', labels:{color:'#8899aa',font:{family:'Space Mono',size:9},boxWidth:10} } }
+    }
+  });
+
+  // P&L BAR CHART
+  chartPnl = new Chart(document.getElementById('chart-pnl'), {
+    type:'bar',
+    data:{ labels, datasets:[{
+      label:'P&L %', data:pnlPcts,
+      backgroundColor:pnlPcts.map(v=>v>=0?'rgba(0,230,118,0.7)':'rgba(255,23,68,0.7)'),
+      borderColor:pnlPcts.map(v=>v>=0?'#00e676':'#ff1744'),
+      borderWidth:1, borderRadius:3
+    }]},
+    options:{...chartDefaults,
+      scales:{
+        x:{ ticks:{color:'#445566',font:{family:'Space Mono',size:9}}, grid:{color:'rgba(30,45,61,0.5)'} },
+        y:{ ticks:{color:'#445566',font:{family:'Space Mono',size:9},callback:v=>v+'%'}, grid:{color:'rgba(30,45,61,0.5)'} }
+      },
+      plugins:{ legend:{display:false} }
+    }
+  });
+
+  // GROUPED BAR: value vs invested
+  chartBars = new Chart(document.getElementById('chart-bars'), {
+    type:'bar',
+    data:{ labels, datasets:[
+      { label:'Valore Attuale', data:values, backgroundColor:'rgba(0,229,255,0.5)', borderColor:'#00e5ff', borderWidth:1, borderRadius:3 },
+      { label:'Investito',      data:invested, backgroundColor:'rgba(41,121,255,0.4)', borderColor:'#2979ff', borderWidth:1, borderRadius:3 }
+    ]},
+    options:{...chartDefaults,
+      scales:{
+        x:{ ticks:{color:'#445566',font:{family:'Space Mono',size:9}}, grid:{color:'rgba(30,45,61,0.5)'} },
+        y:{ ticks:{color:'#445566',font:{family:'Space Mono',size:9},callback:v=>v.toLocaleString('it-IT')}, grid:{color:'rgba(30,45,61,0.5)'} }
+      },
+      plugins:{ legend:{ labels:{color:'#8899aa',font:{family:'Space Mono',size:9}} } }
+    }
+  });
+}
+
+}  // end updateDashboard
+
+// ── REFRESH PRICES FROM YAHOO FINANCE ─────────────────────
+async function refreshPrices() {
+  collectStocksFromDOM();
+  const valid = window._stocks.filter(s => s.ticker);
+  if (!valid.length) { showToast('Aggiungi prima dei titoli!', 'error'); return; }
+
+  const btn = document.getElementById('btn-refresh');
+  const status = document.getElementById('price-status');
+  btn.disabled = true;
+  btn.classList.add('loading');
+  status.innerHTML = '<span style="color:var(--text3)">⏳ Recupero prezzi da Yahoo Finance...</span>';
+
+  const tickers = valid.map(s => s.ticker).join(',');
+  try {
+    const resp = await fetch(`/api/prices?tickers=${encodeURIComponent(tickers)}`);
+    const data = await resp.json();
+
+    let updated = 0, errors = [];
+    window._stocks.forEach(s => {
+      const r = data[s.ticker];
+      if (r && r.price) {
+        s.currentPrice = r.price;
+        s._priceData   = r;
+        updated++;
+      } else if (r && r.error) {
+        errors.push(s.ticker);
+      }
+    });
+
+    renderStocks();
+    updateDashboard();
+
+    const now = new Date().toLocaleTimeString('it-IT');
+    if (errors.length === 0) {
+      status.innerHTML = `<span class="price-ok">✅ ${updated} prezzi aggiornati — ${now}</span>`;
+      showToast(`✅ Prezzi aggiornati (${updated} titoli)`, 'success');
+    } else {
+      status.innerHTML = `<span class="price-ok">✅ ${updated} aggiornati</span> &nbsp;·&nbsp; <span class="price-err">⚠ Non trovati: ${errors.join(', ')}</span> — ${now}`;
+      if (updated > 0) showToast(`${updated} aggiornati, ${errors.length} non trovati`, 'info');
+      else showToast('Nessun prezzo trovato. Verifica i ticker.', 'error');
+    }
+  } catch(e) {
+    status.innerHTML = `<span class="price-err">❌ Errore: ${e.message}</span>`;
+    showToast('Errore recupero prezzi: ' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('loading');
+  }
+}
+
 
 function toggleScout(){document.getElementById('scout-body').classList.toggle('open');document.getElementById('scout-toggle').classList.toggle('open');document.getElementById('scout-header').classList.toggle('open');}
 function toggleOpt(el){el.classList.toggle('selected');el.querySelector('.scout-check').textContent=el.classList.contains('selected')?'✓':'';}
@@ -562,12 +938,12 @@ async function callClaude(prompt,maxTokens=2000){
 function setLoading(b,t,on,msg=''){document.getElementById(b).classList.toggle('active',on);const el=document.getElementById(t);el.classList.toggle('active',on);if(msg)el.textContent=msg;}
 
 async function runAnalysis(){
-  collectStocksFromDOM();const valid=window._stocks.filter(s=>s.ticker);
+  collectStocksFromDOM();const valid=window._stocks.filter(s=>s.ticker&&(parseFloat(s.qty)||parseFloat(s.price)||parseFloat(s.currentPrice)));
   if(!valid.length){alert('Aggiungi almeno un\'azione!');return;}
   const btn=document.getElementById('btn-analyze');setLoading('loading-bar','loading-text',true,'// ANALISI PORTAFOGLIO IN CORSO...');btn.disabled=true;
   document.getElementById('results-panel').classList.remove('active');
   const today=new Date().toLocaleDateString('it-IT',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const pStr=valid.map(s=>`- ${s.ticker}${s.price?` a prezzo medio ${s.price}`:''}`).join('\n');
+  const pStr=valid.map(s=>`- ${s.ticker}${s.price?` | acquisto: ${s.price}`:''} ${s.currentPrice?`| attuale: ${s.currentPrice}`:''} ${s.qty?`| qty: ${s.qty}`:''}`).join('\n');
   const ctx=document.getElementById('context-input').value.trim();
   const prompt=`Sei APEX TRADER, esperto analista finanziario con 20 anni di esperienza sui mercati globali.
 Data: ${today}\nPORTAFOGLIO:\n${pStr}\n${ctx?'CONTESTO: '+ctx:''}
