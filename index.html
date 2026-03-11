@@ -633,6 +633,15 @@ window.showToast = function(msg, type='info') {
 </div>
 
 <script>
+// ════════════════════════════════════════════════════════════
+//  🔧 URL DEL TUO SERVER RAILWAY
+//  Sostituisci con il tuo dominio Railway, es:
+//  https://apex-trader-production.up.railway.app
+//  Lascia vuoto ('') se usi tutto su Railway (non Cloudflare)
+// ════════════════════════════════════════════════════════════
+const RAILWAY_URL = '';
+// ════════════════════════════════════════════════════════════
+
 window._stocks = [];
 let stockId = 0, scoutRisk = 'low', scoutNSugg = 5;
 
@@ -887,7 +896,7 @@ async function refreshPrices() {
 
   const tickers = valid.map(s => s.ticker).join(',');
   try {
-    const resp = await fetch(`/api/prices?tickers=${encodeURIComponent(tickers)}`);
+    const resp = await fetch(`${RAILWAY_URL||''}/api/prices?tickers=${encodeURIComponent(tickers)}`);
     const data = await resp.json();
 
     let updated = 0, errors = [];
@@ -931,7 +940,7 @@ function setNSugg(n){scoutNSugg=n;[3,5,8].forEach(x=>{document.getElementById(`n
 
 async function callClaude(prompt,maxTokens=2000){
   const k=getApiKey(); if(!k)throw new Error('Inserisci la tua API Key Anthropic!');
-  const r=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})});
+  const r=await fetch((RAILWAY_URL||'')+'/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,messages:[{role:'user',content:prompt}]})});
   const d=await r.json(); if(d.error)throw new Error(d.error.message||JSON.stringify(d.error));
   return d.content.map(i=>i.text||'').join('').replace(/```json|```/g,'').trim();
 }

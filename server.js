@@ -1,6 +1,26 @@
 const express = require('express');
 const app = express();
 
+// ── CORS — accetta chiamate da Cloudflare Pages e localhost ─
+app.use((req, res, next) => {
+  const allowed = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ];
+  const origin = req.headers.origin || '';
+  // Accetta localhost + qualsiasi dominio .pages.dev (Cloudflare) + dominio custom
+  if (!origin || allowed.includes(origin) || origin.endsWith('.pages.dev') || origin.endsWith('.cloudflare.com')) {
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+  } else {
+    // Per sicurezza accetta comunque (puoi restringere con il tuo dominio)
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  }
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, anthropic-version');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 app.use(express.json());
 app.use(express.static(__dirname));
 
@@ -11,7 +31,11 @@ app.post('/api/claude', async (req, res) => {
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
       body: JSON.stringify(req.body)
     });
     const data = await response.json();
@@ -23,22 +47,16 @@ app.post('/api/claude', async (req, res) => {
 });
 
 // ── PREZZI YAHOO FINANCE ───────────────────────────────────
-// GET /api/prices?tickers=AAPL,MSFT,ENI.MI
 app.get('/api/prices', async (req, res) => {
   const tickers = (req.query.tickers || '').split(',').map(t => t.trim().toUpperCase()).filter(Boolean);
-  if (!tickers.length) return res.status(400).json({ error: 'Nessun ticker specificato' });
+  if (!tickers.length) return res.status(400).json({ error: 'Nessun ticker' });
 
   const results = {};
-
   await Promise.all(tickers.map(async (ticker) => {
     try {
-      // Yahoo Finance v8 chart endpoint — free, no auth needed
       const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
       const resp = await fetch(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Accept': 'application/json',
-        }
+        headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
       });
       const data = await resp.json();
       const meta = data?.chart?.result?.[0]?.meta;
@@ -51,12 +69,12 @@ app.get('/api/prices', async (req, res) => {
           prev:     prev  ? parseFloat(prev.toFixed(4))  : null,
           change:   chg   ? parseFloat(chg.toFixed(2))   : null,
           currency: meta.currency || '?',
-          name:     meta.shortName || meta.longName || ticker,
+          name:     meta.shortName || ticker,
           market:   meta.exchangeName || '',
           timestamp: meta.regularMarketTime ? new Date(meta.regularMarketTime * 1000).toISOString() : null
         };
       } else {
-        results[ticker] = { price: null, error: 'Dati non trovati' };
+        results[ticker] = { price: null, error: 'Non trovato' };
       }
     } catch (e) {
       results[ticker] = { price: null, error: e.message };
@@ -66,7 +84,10 @@ app.get('/api/prices', async (req, res) => {
   res.json(results);
 });
 
+// ── HEALTH CHECK ───────────────────────────────────────────
+app.get('/api/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }));
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ APEX TRADER in ascolto sulla porta ${PORT}`);
+  console.log(`✅ APEX TRADER API in ascolto sulla porta ${PORT}`);
 });
