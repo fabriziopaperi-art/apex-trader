@@ -91,3 +91,27 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ APEX TRADER API in ascolto sulla porta ${PORT}`);
 });
+
+// ── STORICO 1 ANNO ─────────────────────────────────────────
+app.get('/api/history', async (req, res) => {
+  const ticker = (req.query.ticker || '').trim().toUpperCase();
+  if (!ticker) return res.status(400).json({ error: 'Ticker mancante' });
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1y`;
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
+    });
+    const data = await resp.json();
+    const result = data?.chart?.result?.[0];
+    if (!result) return res.status(404).json({ error: 'Nessun dato' });
+    const timestamps = result.timestamp || [];
+    const closes     = result.indicators?.quote?.[0]?.close || [];
+    const points = timestamps.map((ts, i) => ({
+      t: new Date(ts * 1000).toISOString().slice(0, 10),
+      v: closes[i] != null ? parseFloat(closes[i].toFixed(4)) : null
+    })).filter(p => p.v !== null);
+    res.json({ ticker, points, currency: result.meta?.currency || '' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
